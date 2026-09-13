@@ -1,6 +1,6 @@
-# HoleInspector
+# HoleFinder
 
-**HoleInspector** is a KiCad 10 IPC plugin for inspecting drilled holes
+**HoleFinder** is a KiCad 10 IPC plugin for inspecting drilled holes
 on a PCB by drill size and quickly locating pads and vias on the board.
 
 ![KiCad](https://img.shields.io/badge/KiCad-10.x-blue)
@@ -26,7 +26,7 @@ on a PCB by drill size and quickly locating pads and vias on the board.
 -   Double-click an item to locate it
 -   **Update** button refreshes the hole list from the current board
 -   Remembers the last window position
--   Prevents multiple HoleInspector instances from running at the same
+-   Prevents multiple HoleFinder instances from running at the same
     time
 -   Cross-platform settings storage
 -   Built using the modern KiCad IPC API (`kicad-python` / `kipy`)
@@ -44,27 +44,27 @@ Dependencies are listed in `requirements.txt`.
 
 ### Manual installation
 
-Copy the HoleInspector plugin folder into the KiCad user plugins
+Copy the HoleFinder plugin folder into the KiCad user plugins
 directory.
 
 **Windows**
 
 ``` text
-%USERPROFILE%\Documents\KiCad\10.0\plugins\HoleInspector
+%USERPROFILE%\Documents\KiCad\10.0\plugins\HoleFinder
 ```
 
 The resulting structure should look like:
 
 ``` text
-HoleInspector/
+HoleFinder/
 ├── plugin.json
 ├── requirements.txt
-├── holeinspector_action.py
-├── holeinspector_core.py
-├── holeinspector_24.png
-├── holeinspector_32.png
-├── holeinspector_48.png
-└── holeinspector_64.png
+├── HoleFinder_action.py
+├── HoleFinder_core.py
+├── HoleFinder_24.png
+├── HoleFinder_32.png
+├── HoleFinder_48.png
+└── HoleFinder_64.png
 ```
 
 Restart the PCB Editor or refresh the plugins after installation.
@@ -72,7 +72,7 @@ Restart the PCB Editor or refresh the plugins after installation.
 ## Usage
 
 1.  Open a PCB in KiCad PCB Editor.
-2.  Start **HoleInspector** from the plugin toolbar/menu.
+2.  Start **HoleFinder** from the plugin toolbar/menu.
 3.  Select a hole size from the **Hole** list.
 4.  Select a pad or via from **List of Objects**.
 5.  Click **Locate**, or double-click the object.
@@ -82,7 +82,7 @@ Restart the PCB Editor or refresh the plugins after installation.
 
 ## Settings
 
-HoleInspector remembers the last window position.
+HoleFinder remembers the last window position.
 
 Settings are stored outside the plugin directory so they are preserved
 when the plugin is updated.
@@ -90,33 +90,33 @@ when the plugin is updated.
 **Windows**
 
 ``` text
-%LOCALAPPDATA%\HoleInspector\settings.json
+%LOCALAPPDATA%\HoleFinder\settings.json
 ```
 
 **Linux**
 
 ``` text
-$XDG_CONFIG_HOME/HoleInspector/settings.json
+$XDG_CONFIG_HOME/HoleFinder/settings.json
 ```
 
 or, if `XDG_CONFIG_HOME` is not defined:
 
 ``` text
-~/.config/HoleInspector/settings.json
+~/.config/HoleFinder/settings.json
 ```
 
 **macOS**
 
 ``` text
-~/Library/Application Support/HoleInspector/settings.json
+~/Library/Application Support/HoleFinder/settings.json
 ```
 
 If the saved window position is no longer visible on any connected
-display, HoleInspector opens centered.
+display, HoleFinder opens centered.
 
 ## KiCad IPC API
 
-HoleInspector uses the modern KiCad IPC API rather than the legacy SWIG
+HoleFinder uses the modern KiCad IPC API rather than the legacy SWIG
 `pcbnew` Python API.
 
 Main Python package:
