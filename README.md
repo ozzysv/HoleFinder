@@ -7,6 +7,12 @@ on a PCB by drill size and quickly locating pads and vias on the board.
 ![Version](https://img.shields.io/badge/version-1.0-green)
 ![License](https://img.shields.io/badge/license-GPL--3.0-blue)
 
+
+
+## Demo
+
+<img src="doc/test1.gif" width="600"/> 
+
 ## Features
 
 -   Groups drilled objects by hole size
