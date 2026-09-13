@@ -11,7 +11,7 @@ on a PCB by drill size and quickly locating pads and vias on the board.
 
 ## Demo
 
-<img src="doc/test1.gif" width="600"/> 
+<img src="doc/test1.gif" width="800"/> 
 
 ## Features
 
