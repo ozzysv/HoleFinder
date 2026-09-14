@@ -1,3 +1,18 @@
+
+"""
+HoleFinder plugin
+Quickly find, show, and locate PCB pads and vias grouped by drill size or net.
+Easily switch between hole-size and net-based views. 
+Select any item to center and highlight it directly on the PCB.
+            
+For KiCad 10.0+ 
+"""
+# Copyright 2026 ozzy_sv https://github.com/ozzysv
+#
+# original plugin         https://github.com/ozzysv/HoleFinder
+#
+# GPL-3.0 license
+
 import wx
 import wx.adv
 import json
@@ -6,6 +21,8 @@ import sys
 from pathlib import Path
 from collections import defaultdict
 from kipy import KiCad
+
+VERSION = "1.1"
 
 NM_PER_MM = 1_000_000.0
 PLUGIN_DIR = Path(__file__).resolve().parent
@@ -47,6 +64,19 @@ def save_settings(data):
 def mm_text(nm):
     return f"{nm / NM_PER_MM:.4f}".rstrip("0").rstrip(".")
 
+def hole_text(dx, dy):
+    if dx == dy:
+        return f"Round {mm_text(dx)} mm"
+    return f"Obround {mm_text(dx)} x {mm_text(dy)} mm"
+
+def net_name(obj):
+    """Return the object's net name, or 'No net' when it is not assigned."""
+    try:
+        name = str(obj.net.name).strip()
+        return name if name else "No net"
+    except Exception:
+        return "No net"
+
 def id_key(obj):
     """Return a stable string key for a KiCad API object id."""
     try:
@@ -66,11 +96,13 @@ def footprint_reference(fp):
 
 class HoleFinderFrame(wx.Frame):
     def __init__(self):
-        super().__init__(None, title="HoleFinder 1.0", size=(280, 500))
+        super().__init__(None, title=f"HoleFinder {VERSION}", size=(280, 500))
         self.kicad = KiCad()
         self.board = self.kicad.get_board()
         self.groups = {}
         self.items = []
+        self.all_holes = []
+        self.mode = "hole"
         self._blink_generation = 0
 
         try:
@@ -83,7 +115,9 @@ class HoleFinderFrame(wx.Frame):
         main = wx.BoxSizer(wx.VERTICAL)
 
         row = wx.BoxSizer(wx.HORIZONTAL)
-        row.Add(wx.StaticText(panel, label="Hole:"), 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
+        self.btn_mode = wx.Button(panel, label="Hole", size=(55, -1))
+        self.btn_mode.SetToolTip("Switch between grouping by hole size and by net name")
+        row.Add(self.btn_mode, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
         self.combo = wx.Choice(panel)
         row.Add(self.combo, 1, wx.EXPAND)
         main.Add(row, 0, wx.EXPAND | wx.ALL, 10)
@@ -115,6 +149,7 @@ class HoleFinderFrame(wx.Frame):
 
         panel.SetSizer(main)
 
+        self.btn_mode.Bind(wx.EVT_BUTTON, self.on_mode)
         self.combo.Bind(wx.EVT_CHOICE, self.on_group)
         self.listbox.Bind(wx.EVT_LISTBOX_DCLICK, self.on_locate)
         self.btn_update.Bind(wx.EVT_BUTTON, self.on_update)
@@ -200,7 +235,7 @@ class HoleFinderFrame(wx.Frame):
                 label = f"Pad {ref}:{number}" if ref != "?" else f"Pad {number}"
 
                 holes.append(
-                    (dx, dy, label, pad, int(pos.x), int(pos.y))
+                    (dx, dy, label, pad, int(pos.x), int(pos.y), net_name(pad))
                 )
             except Exception:
                 continue
@@ -213,7 +248,7 @@ class HoleFinderFrame(wx.Frame):
                     continue
                 pos = via.position
                 holes.append(
-                    (d, d, f"Via {i}", via, int(pos.x), int(pos.y))
+                    (d, d, f"Via {i}", via, int(pos.x), int(pos.y), net_name(via))
                 )
             except Exception:
                 continue
@@ -223,27 +258,47 @@ class HoleFinderFrame(wx.Frame):
     def refresh(self):
         self._blink_generation += 1
         self.board = self.kicad.get_board()
-        holes = self.collect()
+        self.all_holes = self.collect()
+        self.rebuild_groups()
 
+    def rebuild_groups(self):
+        """Build the drop-down either by hole size or by net name."""
         grouped = defaultdict(list)
-        for h in holes:
-            grouped[(h[0], h[1])].append(h)
 
-        self.groups = {}
-        labels = []
+        if self.mode == "hole":
+            for h in self.all_holes:
+                grouped[(h[0], h[1])].append(h)
 
-        for key in sorted(grouped, key=lambda k: (max(k), min(k))):
-            dx, dy = key
-            items = grouped[key]
+            ordered_keys = sorted(grouped, key=lambda k: (max(k), min(k)))
+            labels = []
+            self.groups = {}
 
-            if dx == dy:
-                name = f"Round {mm_text(dx)} mm"
-            else:
-                name = f"Obround {mm_text(dx)} x {mm_text(dy)} mm"
+            for key in ordered_keys:
+                dx, dy = key
+                items = grouped[key]
+                label = f"{hole_text(dx, dy)} ({len(items)})"
+                labels.append(label)
+                self.groups[label] = items
 
-            label = f"{name} ({len(items)})"
-            labels.append(label)
-            self.groups[label] = items
+            group_word = "sizes"
+        else:
+            for h in self.all_holes:
+                grouped[h[6]].append(h)
+
+            ordered_keys = sorted(
+                grouped,
+                key=lambda name: (name == "No net", name.casefold())
+            )
+            labels = []
+            self.groups = {}
+
+            for name in ordered_keys:
+                items = grouped[name]
+                label = f"{name} ({len(items)})"
+                labels.append(label)
+                self.groups[label] = items
+
+            group_word = "nets"
 
         self.combo.Set(labels)
 
@@ -254,15 +309,36 @@ class HoleFinderFrame(wx.Frame):
             self.listbox.Clear()
             self.items = []
 
-        self.status.SetLabel(f"{len(holes)} drilled objects / {len(labels)} sizes")
+        self.status.SetLabel(
+            f"{len(self.all_holes)} drilled objects / {len(labels)} {group_word}"
+        )
 
     def load_group(self, label):
         self._blink_generation += 1
         self.items = self.groups.get(label, [])
-        self.listbox.Set([x[2] for x in self.items])
+
+        if self.mode == "hole":
+            display = [
+                f"{h[2]}   [{h[6]}]"
+                for h in self.items
+            ]
+        else:
+            display = [
+                f"{h[2]}   [{hole_text(h[0], h[1])}]"
+                for h in self.items
+            ]
+
+        self.listbox.Set(display)
 
         if self.items:
             self.listbox.SetSelection(0)
+
+    def on_mode(self, evt):
+        """Toggle between hole-size grouping and net-name grouping."""
+        self._blink_generation += 1
+        self.mode = "net" if self.mode == "hole" else "hole"
+        self.btn_mode.SetLabel("Net" if self.mode == "net" else "Hole")
+        self.rebuild_groups()
 
     def on_group(self, evt):
         self.load_group(self.combo.GetStringSelection())
@@ -363,7 +439,27 @@ def run():
         )
         return
 
-    frame = HoleFinderFrame()
+    try:
+        frame = HoleFinderFrame()
+    except Exception as e:
+        message = str(e)
+        if "kicad_token did not match" in message.lower():
+            message = (
+                "Unable to connect to the current KiCad instance.\n\n"
+                "The KiCad IPC token does not match this instance.\n"
+                "Multiple KiCad PCB Editor instances are open. Please close the other instances and try again.\n\n"
+                "If the problem persists, close KiCad completely and start it again."
+            )
+        else:
+            message = f"Unable to start HoleFinder:\n\n{e}"
+
+        wx.MessageBox(
+            message,
+            "HoleFinder",
+            wx.OK | wx.ICON_ERROR,
+        )
+        return
+
     frame._single_instance_checker = checker
     frame.Show()
     app.MainLoop()
