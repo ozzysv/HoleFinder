@@ -9,7 +9,7 @@ by drill size or net and quickly locating them on the PCB.
 
 ## Demo
 
-<img src="doc/test1.gif" width="800"/>
+<img src="doc/test2.gif" width="800"/>
 
 ## Features
 
